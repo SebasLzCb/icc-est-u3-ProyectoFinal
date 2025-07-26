@@ -1,5 +1,6 @@
 package solver;
 
-public class MazeSolver {
-    
+public interface MazeSolver {
+    List<Cell> getPath(boolean[][] grid,Cell start,Cell end);
+
 }
