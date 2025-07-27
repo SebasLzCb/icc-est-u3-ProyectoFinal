@@ -6,7 +6,7 @@ public class MazeSolverRecursivoCompletoBT {
         return false;
     }
 
-    lab[x][y] = 2; 
+    lab[x][y] = 2; // Marcar como parte del camino
 
     if (x == finX && y == finY) {
         return true;
@@ -17,7 +17,7 @@ public class MazeSolverRecursivoCompletoBT {
     if (buscarBacktracking(lab, x, y - 1, finX, finY)) return true;
     if (buscarBacktracking(lab, x, y + 1, finX, finY)) return true;
 
-    lab[x][y] = 0;
+    lab[x][y] = 0; // Retroceder si no hay camino
     return false;
 }
 

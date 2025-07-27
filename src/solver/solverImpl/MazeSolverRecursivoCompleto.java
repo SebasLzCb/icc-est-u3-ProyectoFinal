@@ -19,7 +19,7 @@ public class MazeSolverRecursivoCompleto {
     if (buscar4Direcciones(lab, x, y - 1, finX, finY)) return true; // izquierda
     if (buscar4Direcciones(lab, x, y + 1, finX, finY)) return true; // derecha
 
-    lab[x][y] = 0;
+    lab[x][y] = 0;// Retroceso
     return false;
 }
 
