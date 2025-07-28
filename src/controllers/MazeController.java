@@ -1,19 +1,19 @@
 package controllers;
 
 import models.*;
-import solver.solverImpl.*; // Importa todos tus solvers
+import solver.MazeSolver;
+import solver.solverImpl.*;
 import views.MazeFrame;
 import views.MazePanel;
 import views.ResultadosDialog;
 
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import javax.swing.SwingWorker;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import javax.swing.*;
+import java.awt.event.ActionListener;
 import java.util.List;
 import java.util.Collections;
 import java.util.function.Consumer;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class MazeController {
     private Cell[][] mazeGrid;
@@ -36,12 +36,12 @@ public class MazeController {
     }
 
     private void initializeListeners() {
-        // --- Listeners para los modos de edición ---
+        // Listeners de edición
         mazeFrame.getSetStartButton().addActionListener(e -> setCurrentEditMode("Set Start"));
         mazeFrame.getSetEndButton().addActionListener(e -> setCurrentEditMode("Set End"));
         mazeFrame.getToggleWallButton().addActionListener(e -> setCurrentEditMode("Toggle Wall"));
 
-        // --- Listener para el clic en el panel del laberinto ---
+        // Listener para el clic en el panel
         mazePanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -51,103 +51,36 @@ public class MazeController {
             }
         });
         
-        // --- Listener para el botón de resolver ---
-        mazeFrame.getSolveButton().addActionListener(e -> {
+        // Lógica unificada: ambos botones inician la animación
+        ActionListener solveActionListener = e -> {
             String selectedAlgorithm = (String) mazeFrame.getAlgorithmComboBox().getSelectedItem();
-            runSolver(selectedAlgorithm);
-        });
-
-        // --- Listener para el botón de limpiar muros ---
-        mazeFrame.getClearButton().addActionListener(e -> clearWalls());
-
-        // --- Listener para la opción de menú "Ver Resultados" ---
-        mazeFrame.getVerResultadosMenuItem().addActionListener(e -> mostrarResultados());
-
-        // --- Listener para el botón "Paso a paso" (AHORA FUNCIONAL) ---
-        mazeFrame.getStepButton().addActionListener(e -> {
-            String selectedAlgorithm = (String) mazeFrame.getAlgorithmComboBox().getSelectedItem();
-            runStepByStepSolver(selectedAlgorithm);
-        });
-    }
-
-    private void setCurrentEditMode(String mode) {
-        this.currentEditMode = mode;
-    }
-
-    private void handlePanelClick(int row, int col) {
-        if (row < 0 || row >= mazeGrid.length || col < 0 || col >= mazeGrid[0].length) return;
-
-        switch (currentEditMode) {
-            case "Set Start":
-                findAndReplaceState(CellState.START, CellState.PATH);
-                mazeGrid[row][col].setState(CellState.START);
-                break;
-            case "Set End":
-                findAndReplaceState(CellState.END, CellState.PATH);
-                mazeGrid[row][col].setState(CellState.END);
-                break;
-            case "Toggle Wall":
-                Cell cell = mazeGrid[row][col];
-                if (cell.getState() == CellState.WALL) {
-                    cell.setState(CellState.PATH);
-                } else if (cell.getState() == CellState.PATH) {
-                    cell.setState(CellState.WALL);
-                }
-                break;
-        }
-        mazePanel.repaint();
-    }
-
-    private void runSolver(String algorithmName) {
-        Cell start = findCell(CellState.START);
-        Cell end = findCell(CellState.END);
-
-        if (start == null || end == null) {
-            JOptionPane.showMessageDialog(mazeFrame, "Debe definir un punto de INICIO y FIN.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        clearVisualPath();
-        setButtonsEnabled(false);
-
-        SwingWorker<List<Cell>, Void> worker = new SwingWorker<>() {
-            long startTime;
-            @Override
-            protected List<Cell> doInBackground() {
-                startTime = System.nanoTime();
-                switch (algorithmName) {
-                    case "BFS":
-                        return new MazeSolverBFS().solve(mazeGrid, start, end);
-                    case "DFS":
-                    case "Recursivo BT":
-                        return new MazeSolverRecursivoCompletoBT().solve(mazeGrid, start, end);
-                    case "Recursivo (2-dir)":
-                        return new MazeSolverRecursivo().solve(mazeGrid, start, end);
-                    case "Recursivo (4-dir)":
-                        return new MazeSolverRecursivoCompleto().solve(mazeGrid, start, end);
-                    default:
-                        return Collections.emptyList();
-                }
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    List<Cell> path = get();
-                    long duration = System.nanoTime() - startTime;
-                    addAlgoritmoResult(algorithmName, path, duration);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    setButtonsEnabled(true);
-                }
-            }
+            runAnimatedSolver(selectedAlgorithm);
         };
-        worker.execute();
+        mazeFrame.getSolveButton().addActionListener(solveActionListener);
+        mazeFrame.getStepButton().addActionListener(solveActionListener);
+        
+        mazeFrame.getClearButton().addActionListener(e -> clearWalls());
+        
+        // Listeners del menú y diálogo
+        mazeFrame.getVerResultadosMenuItem().addActionListener(e -> mostrarResultados());
+        
+        resultadosDialog.clearButton.addActionListener(e -> {
+            int response = JOptionPane.showConfirmDialog(
+                resultadosDialog,
+                "¿Estás seguro de que quieres borrar todos los resultados de la tabla?",
+                "Confirmar Limpieza", JOptionPane.YES_NO_OPTION);
+            if (response == JOptionPane.YES_OPTION) {
+                solveResults.clearResults();
+                resultadosDialog.setResults(solveResults.getResults());
+            }
+        });
+
+        resultadosDialog.graphButton.addActionListener(e -> {
+            JOptionPane.showMessageDialog(resultadosDialog, "La función de graficar aún no está implementada.", "Próximamente", JOptionPane.INFORMATION_MESSAGE);
+        });
     }
-    
-    // --- NUEVO: MÉTODO PARA LA VISUALIZACIÓN PASO A PASO ---
-    private void runStepByStepSolver(String algorithmName) {
+
+    private void runAnimatedSolver(String algorithmName) {
         Cell start = findCell(CellState.START);
         Cell end = findCell(CellState.END);
 
@@ -164,22 +97,16 @@ public class MazeController {
             protected List<Cell> doInBackground() throws Exception {
                 startTime = System.nanoTime();
                 Consumer<Cell> stepPublisher = this::publish;
-
-                if ("BFS".equals(algorithmName)) {
-                    // Asegúrate de tener el método solveStepByStep en tu clase MazeSolverBFS
-                    return new MazeSolverBFS().solveStepByStep(mazeGrid, start, end, stepPublisher);
-                } else {
-                    SwingUtilities.invokeLater(() ->
-                        JOptionPane.showMessageDialog(mazeFrame, "Visualización 'Paso a paso' solo implementada para BFS.", "Info", JOptionPane.INFORMATION_MESSAGE)
-                    );
-                    // Como fallback, ejecutamos la versión normal del algoritmo seleccionado
-                    return runSolverInBackground(algorithmName, start, end);
+                
+                MazeSolver solver = getSolverByName(algorithmName);
+                if (solver == null) {
+                    throw new UnsupportedOperationException("Algoritmo no reconocido: " + algorithmName);
                 }
+                return solver.solveStepByStep(mazeGrid, start, end, stepPublisher);
             }
 
             @Override
             protected void process(List<Cell> chunks) {
-                // Dibuja las celdas visitadas durante la animación
                 for (Cell cell : chunks) {
                     if (cell.getState() == CellState.PATH) {
                         cell.setState(CellState.VISITED);
@@ -193,9 +120,12 @@ public class MazeController {
                 try {
                     List<Cell> path = get();
                     long duration = System.nanoTime() - startTime;
+                    // Al eliminar la limpieza previa, las celdas visitadas (amarillas) se quedan
+                    // y el camino final se dibuja encima, logrando el efecto deseado.
                     addAlgoritmoResult(algorithmName, path, duration);
                 } catch (Exception e) {
                     e.printStackTrace();
+                    JOptionPane.showMessageDialog(mazeFrame, "Ocurrió un error al resolver el laberinto:\n" + e.getCause(), "Error de Ejecución", JOptionPane.ERROR_MESSAGE);
                 } finally {
                     setButtonsEnabled(true);
                 }
@@ -203,23 +133,53 @@ public class MazeController {
         };
         worker.execute();
     }
-
-    // Método auxiliar para no duplicar el switch
-    private List<Cell> runSolverInBackground(String algorithmName, Cell start, Cell end) {
-        switch (algorithmName) {
-            case "BFS": return new MazeSolverBFS().solve(mazeGrid, start, end);
-            case "DFS": case "Recursivo BT": return new MazeSolverRecursivoCompletoBT().solve(mazeGrid, start, end);
-            case "Recursivo (2-dir)": return new MazeSolverRecursivo().solve(mazeGrid, start, end);
-            case "Recursivo (4-dir)": return new MazeSolverRecursivoCompleto().solve(mazeGrid, start, end);
-            default: return Collections.emptyList();
+    
+    private MazeSolver getSolverByName(String name) {
+        switch (name) {
+            case "BFS": return new MazeSolverBFS();
+            case "DFS": return new MazeSolverDFS();
+            case "Backtracking":
+            case "Recursivo Completo BT":
+                return new MazeSolverRecursivoCompletoBT();
+            case "Recursivo": return new MazeSolverRecursivo();
+            case "Recursivo Completo": return new MazeSolverRecursivoCompleto();
+            default: return null;
         }
+    }
+    
+    // --- MÉTODOS AUXILIARES ---
+
+    private void setCurrentEditMode(String mode) { this.currentEditMode = mode; }
+    
+    private void setButtonsEnabled(boolean enabled) {
+        mazeFrame.getSolveButton().setEnabled(enabled);
+        mazeFrame.getStepButton().setEnabled(enabled);
+        mazeFrame.getClearButton().setEnabled(enabled);
+    }
+    
+    private void handlePanelClick(int row, int col) {
+        if (row < 0 || row >= mazeGrid.length || col < 0 || col >= mazeGrid[0].length) return;
+        switch (currentEditMode) {
+            case "Set Start":
+                findAndReplaceState(CellState.START, CellState.PATH);
+                mazeGrid[row][col].setState(CellState.START);
+                break;
+            case "Set End":
+                findAndReplaceState(CellState.END, CellState.PATH);
+                mazeGrid[row][col].setState(CellState.END);
+                break;
+            case "Toggle Wall":
+                Cell cell = mazeGrid[row][col];
+                if (cell.getState() == CellState.WALL) cell.setState(CellState.PATH);
+                else if (cell.getState() == CellState.PATH) cell.setState(CellState.WALL);
+                break;
+        }
+        mazePanel.repaint();
     }
     
     private void addAlgoritmoResult(String algorithmName, List<Cell> path, long executionTime) {
         solveResults.getResults().removeIf(res -> res.getAlgorithmName().equals(algorithmName));
-        AlgorithmResult result = new AlgorithmResult(algorithmName, executionTime, path);
-        solveResults.addResult(result);
-
+        solveResults.addResult(new AlgorithmResult(algorithmName, executionTime, path));
         for (Cell cell : path) {
             if (cell.getState() == CellState.PATH || cell.getState() == CellState.VISITED) {
                 cell.setState(CellState.SOLUTION);
@@ -227,7 +187,7 @@ public class MazeController {
         }
         mazePanel.repaint();
     }
-
+    
     private void mostrarResultados() {
         resultadosDialog.setResults(solveResults.getResults());
         resultadosDialog.setVisible(true);
@@ -236,8 +196,7 @@ public class MazeController {
     private void clearWalls() {
         for (Cell[] row : mazeGrid) {
             for (Cell cell : row) {
-                CellState state = cell.getState();
-                if (state == CellState.WALL || state == CellState.SOLUTION || state == CellState.VISITED) {
+                if (cell.getState() == CellState.WALL || cell.getState() == CellState.SOLUTION || cell.getState() == CellState.VISITED) {
                     cell.setState(CellState.PATH);
                 }
             }
@@ -267,7 +226,7 @@ public class MazeController {
             }
         }
     }
-
+    
     private Cell findCell(CellState state) {
         for (Cell[] row : mazeGrid) {
             for (Cell cell : row) {
@@ -276,7 +235,7 @@ public class MazeController {
         }
         return null;
     }
-
+    
     private Cell[][] createDefaultMaze(int height, int width) {
         Cell[][] maze = new Cell[height][width];
         for (int row = 0; row < height; row++) {
@@ -285,11 +244,5 @@ public class MazeController {
             }
         }
         return maze;
-    }
-    
-    private void setButtonsEnabled(boolean enabled) {
-        mazeFrame.getSolveButton().setEnabled(enabled);
-        mazeFrame.getStepButton().setEnabled(enabled);
-        mazeFrame.getClearButton().setEnabled(enabled);
     }
 }

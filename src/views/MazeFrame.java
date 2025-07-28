@@ -1,17 +1,17 @@
-// En src/views/MazeFrame.java
 package views;
 
 import javax.swing.*;
 import java.awt.*;
+import controllers.App; // Asegúrate de que App esté en el paquete controllers
 
 public class MazeFrame extends JFrame {
 
     private final MazePanel mazePanel;
     private final JRadioButton setStartButton, setEndButton, toggleWallButton;
     private final JComboBox<String> algorithmComboBox;
-    private final JButton solveButton, clearButton, stepButton; // Botón "Paso a paso"
+    private final JButton solveButton, clearButton, stepButton;
     private final JMenuItem verResultadosMenuItem;
-     // Opción del menú
+    private final JMenuItem nuevoLaberintoItem;
 
     public MazeFrame() {
         setTitle("Creador y Solucionador de Laberintos");
@@ -22,8 +22,13 @@ public class MazeFrame extends JFrame {
         JMenuBar menuBar = new JMenuBar();
         JMenu archivoMenu = new JMenu("Archivo");
         verResultadosMenuItem = new JMenuItem("Ver Resultados");
-        JMenuItem nuevoLaberintoItem = new JMenuItem("Nuevo Laberinto"); // Opcional, pero buena idea
+        nuevoLaberintoItem = new JMenuItem("Nuevo Laberinto");
         
+        nuevoLaberintoItem.addActionListener(e -> {
+            this.dispose(); // Cierra la ventana actual
+            App.main(new String[]{}); // Llama al main de App para empezar de nuevo
+        });
+
         archivoMenu.add(nuevoLaberintoItem);
         archivoMenu.add(verResultadosMenuItem);
         menuBar.add(archivoMenu);
@@ -32,23 +37,19 @@ public class MazeFrame extends JFrame {
         // --- 2. PANEL DE HERRAMIENTAS DE EDICIÓN (ARRIBA) ---
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         topPanel.setBorder(BorderFactory.createTitledBorder("Modo de Edición"));
-        
         setStartButton = new JRadioButton("Poner Inicio");
         setEndButton = new JRadioButton("Poner Fin");
         toggleWallButton = new JRadioButton("Poner/Quitar Muro", true);
-
         ButtonGroup editGroup = new ButtonGroup();
         editGroup.add(setStartButton);
         editGroup.add(setEndButton);
         editGroup.add(toggleWallButton);
-
         topPanel.add(setStartButton);
         topPanel.add(setEndButton);
         topPanel.add(toggleWallButton);
         add(topPanel, BorderLayout.NORTH);
 
         // --- 3. PANEL DEL LABERINTO (CENTRO) ---
-        // Este panel se crea en el controlador ahora para tener las dimensiones
         mazePanel = new MazePanel();
         add(new JScrollPane(mazePanel), BorderLayout.CENTER);
 
@@ -56,22 +57,24 @@ public class MazeFrame extends JFrame {
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         bottomPanel.setBorder(BorderFactory.createTitledBorder("Acciones"));
         
-        // ¡Aquí añadimos todos tus algoritmos!
-        algorithmComboBox = new JComboBox<>(new String[]{"BFS", "DFS", "Recursivo BT", "Recursivo (2-dir)", "Recursivo (4-dir)"});
+        // --- ¡NOMBRES CORREGIDOS Y AJUSTADOS! ---
+        algorithmComboBox = new JComboBox<>(new String[]{
+            "Recursivo", "Recursivo Completo", "Recursivo Completo BT", "BFS", "DFS", "Backtracking"
+        });
+        
         solveButton = new JButton("Resolver");
-        stepButton = new JButton("Paso a paso"); // Nuevo botón
+        stepButton = new JButton("Paso a paso");
         clearButton = new JButton("Limpiar Muros");
 
         bottomPanel.add(new JLabel("Algoritmo:"));
         bottomPanel.add(algorithmComboBox);
         bottomPanel.add(solveButton);
-        bottomPanel.add(stepButton); // Añadido al panel
+        bottomPanel.add(stepButton);
         bottomPanel.add(clearButton);
         add(bottomPanel, BorderLayout.SOUTH);
 
-        setSize(800, 600); // Un tamaño inicial más grande
+        setSize(800, 600);
         setLocationRelativeTo(null);
-
     }
 
     // --- Getters para que el Controlador pueda acceder a todo ---
@@ -84,4 +87,5 @@ public class MazeFrame extends JFrame {
     public JButton getClearButton() { return clearButton; }
     public JButton getStepButton() { return stepButton; }
     public JMenuItem getVerResultadosMenuItem() { return verResultadosMenuItem; }
+    public JMenuItem getNuevoLaberintoItem() { return nuevoLaberintoItem; }
 }

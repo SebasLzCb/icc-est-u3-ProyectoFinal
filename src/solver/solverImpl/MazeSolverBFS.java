@@ -3,10 +3,11 @@ package solver.solverImpl;
 import java.util.*;
 import models.Cell;
 import models.CellState;
+import solver.MazeSolver;
 
-public class MazeSolverBFS {
+public class MazeSolverBFS implements MazeSolver{
 
-    public static List<Cell> solve(Cell[][] mazeGrid, Cell start, Cell end) {
+    public List<Cell> solve(Cell[][] mazeGrid, Cell start, Cell end) {
         Queue<Cell> queue = new LinkedList<>();
         boolean[][] visited = new boolean[mazeGrid.length][mazeGrid[0].length];
 

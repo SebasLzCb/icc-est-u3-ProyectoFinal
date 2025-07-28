@@ -1,7 +1,9 @@
+package controllers;
+
 // src/App.java
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-import controllers.MazeController;
+
 import views.MazeFrame;
 
 public class App {
