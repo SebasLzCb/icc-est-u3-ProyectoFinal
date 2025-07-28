@@ -1,47 +1,54 @@
 package solver.solverImpl;
 
 import java.util.*;
+import models.Cell;
+import models.CellState;
 
 public class MazeSolverBFS {
 
-    public static boolean resolver(int[][] lab, int inicioX, int inicioY, int finX, int finY) {
-        int filas = lab.length;
-        int columnas = lab[0].length;
+    public static List<Cell> solve(Cell[][] mazeGrid, Cell start, Cell end) {
+        Queue<Cell> queue = new LinkedList<>();
+        boolean[][] visited = new boolean[mazeGrid.length][mazeGrid[0].length];
 
-        boolean[][] visitado = new boolean[filas][columnas];
-        int[][] anterior = new int[filas * columnas][2]; // para reconstruir el camino
+        start.setParent(null);
+        queue.add(start);
+        visited[start.getRow()][start.getCol()] = true;
 
-        Queue<int[]> cola = new LinkedList<>();
-        cola.add(new int[]{inicioX, inicioY});
-        visitado[inicioX][inicioY] = true;
+        while (!queue.isEmpty()) {
+            Cell current = queue.poll();
 
-        int[] dx = {-1, 1, 0, 0};
-        int[] dy = {0, 0, -1, 1};
-
-        while (!cola.isEmpty()) {
-            int[] actual = cola.poll();
-            int x = actual[0];
-            int y = actual[1];
-
-            if (x == finX && y == finY) {
-                lab[x][y] = 2;
-                return true;
+            if (current.getRow() == end.getRow() && current.getCol() == end.getCol()) {
+                return reconstructPath(current);
             }
 
+            int[] dr = {-1, 1, 0, 0};
+            int[] dc = {0, 0, -1, 1};
             for (int i = 0; i < 4; i++) {
-                int nx = x + dx[i];
-                int ny = y + dy[i];
+                int nRow = current.getRow() + dr[i];
+                int nCol = current.getCol() + dc[i];
 
-                if (nx >= 0 && ny >= 0 && nx < filas && ny < columnas &&
-                        lab[nx][ny] == 0 && !visitado[nx][ny]) {
-                    cola.add(new int[]{nx, ny});
-                    visitado[nx][ny] = true;
-                    anterior[nx * columnas + ny] = new int[]{x, y};
+                if (nRow >= 0 && nCol >= 0 && nRow < mazeGrid.length && nCol < mazeGrid[0].length &&
+                        !visited[nRow][nCol] && mazeGrid[nRow][nCol].getState() != CellState.WALL) {
+                    
+                    visited[nRow][nCol] = true;
+                    Cell neighbor = mazeGrid[nRow][nCol];
+                    neighbor.setParent(current);
+                    queue.add(neighbor);
                 }
             }
         }
+        return Collections.emptyList();
+    }
 
-        return false; // no encontró
+    private static List<Cell> reconstructPath(Cell endCell) {
+        List<Cell> path = new ArrayList<>();
+        Cell current = endCell;
+        while (current != null) {
+            path.add(current);
+            current = current.getParent();
+        }
+        Collections.reverse(path);
+        return path;
     }
 }
 

@@ -1,43 +1,62 @@
+
 package solver.solverImpl;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import models.Cell;
+import models.CellState;
 
-public class MazeSolverDFS {
+public class MazeSolverDFS { // O MazeSolverRecursivoCompletoBT
+    
+    public static List<Cell> solve(Cell[][] maze, Cell start, Cell end) {
+        List<Cell> path = new ArrayList<>();
+        boolean[][] visited = new boolean[maze.length][maze[0].length];
+        
+        findPath(maze, start, end, visited, path);
+        
+        // Si el camino no contiene el final, significa que no se encontró una solución.
+        if (path.isEmpty() || path.get(path.size() - 1) != end) {
+            return Collections.emptyList();
+        }
+        
+        return path;
+    }
 
-    public static boolean resolver(int[][] lab, int inicioX, int inicioY, int finX, int finY) {
-        int filas = lab.length;
-        int columnas = lab[0].length;
+    private static boolean findPath(Cell[][] maze, Cell current, Cell end, boolean[][] visited, List<Cell> path) {
+        int row = current.getRow();
+        int col = current.getCol();
 
-        boolean[][] visitado = new boolean[filas][columnas];
-        Stack<int[]> pila = new Stack<>();
-        pila.push(new int[]{inicioX, inicioY});
+        if (row < 0 || col < 0 || row >= maze.length || col >= maze[0].length ||
+            maze[row][col].getState() == CellState.WALL || visited[row][col]) {
+            return false;
+        }
+        
+        visited[row][col] = true;
+        path.add(current);
 
-        int[] dx = {-1, 1, 0, 0};
-        int[] dy = {0, 0, -1, 1};
+        if (current == end) {
+            return true; // ¡Éxito! Camino encontrado.
+        }
+        
+        int[] dr = {-1, 1, 0, 0};
+        int[] dc = {0, 0, -1, 1};
 
-        while (!pila.isEmpty()) {
-            int[] actual = pila.pop();
-            int x = actual[0];
-            int y = actual[1];
+        for (int i = 0; i < 4; i++) {
+            int nRow = row + dr[i];
+            int nCol = col + dc[i];
 
-            if (x < 0 || y < 0 || x >= filas || y >= columnas || visitado[x][y] || lab[x][y] != 0)
-                continue;
-
-            visitado[x][y] = true;
-            lab[x][y] = 2;
-
-            if (x == finX && y == finY) {
-                return true;
-            }
-
-            for (int i = 0; i < 4; i++) {
-                int nx = x + dx[i];
-                int ny = y + dy[i];
-                pila.push(new int[]{nx, ny});
+            // --- ¡ESTA ES LA CORRECCIÓN CLAVE! ---
+            // Verificamos que el vecino esté DENTRO de los límites del laberinto.
+            if (nRow >= 0 && nCol >= 0 && nRow < maze.length && nCol < maze[0].length) {
+                Cell neighbor = maze[nRow][nCol];
+                if (findPath(maze, neighbor, end, visited, path)) {
+                    return true; // Si se encontró el camino, dejar de buscar.
+                }
             }
         }
-
+        
+        path.remove(path.size() - 1); // Backtrack
         return false;
     }
 }
-
