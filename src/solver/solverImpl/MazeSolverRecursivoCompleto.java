@@ -33,8 +33,11 @@ public class MazeSolverRecursivoCompleto implements MazeSolver {
             path.add(current);
             return true;
         }
-        int[] dRow = {-1, 1, 0, 0};
-        int[] dCol = {0, 0, -1, 1};
+        
+        // --- PROFESSOR'S EXPLORATION ORDER: Right, Down, Left, Up ---
+        int[] dRow = {0, 1, 0, -1};
+        int[] dCol = {1, 0, -1, 0};
+
         for (int i = 0; i < 4; i++) {
             int newRow = row + dRow[i];
             int newCol = col + dCol[i];
@@ -73,8 +76,11 @@ public class MazeSolverRecursivoCompleto implements MazeSolver {
             path.add(current);
             return true;
         }
-        int[] dRow = {-1, 1, 0, 0};
-        int[] dCol = {0, 0, -1, 1};
+
+        // --- PROFESSOR'S EXPLORATION ORDER: Right, Down, Left, Up ---
+        int[] dRow = {0, 1, 0, -1};
+        int[] dCol = {1, 0, -1, 0};
+
         for (int i = 0; i < 4; i++) {
             int newRow = row + dRow[i];
             int newCol = col + dCol[i];

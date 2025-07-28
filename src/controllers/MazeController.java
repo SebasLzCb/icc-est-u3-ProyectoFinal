@@ -16,6 +16,9 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
 public class MazeController {
+    // Clase interna para pasar el resultado del hilo de fondo al hilo principal
+    private record SolveResultPayload(List<Cell> path, long duration) {}
+
     private Cell[][] mazeGrid;
     private final SolveResults solveResults;
     private final MazeFrame mazeFrame;
@@ -28,10 +31,8 @@ public class MazeController {
         this.mazePanel = mazeFrame.getMazePanel();
         this.resultadosDialog = new ResultadosDialog(mazeFrame);
         this.solveResults = new SolveResults();
-        
         this.mazeGrid = createDefaultMaze(rows, cols);
         this.mazePanel.setMazeGrid(this.mazeGrid);
-        
         initializeListeners();
     }
 
@@ -50,7 +51,7 @@ public class MazeController {
                 handlePanelClick(row, col);
             }
         });
-        
+
         // Lógica unificada: ambos botones inician la animación
         ActionListener solveActionListener = e -> {
             String selectedAlgorithm = (String) mazeFrame.getAlgorithmComboBox().getSelectedItem();
@@ -58,12 +59,11 @@ public class MazeController {
         };
         mazeFrame.getSolveButton().addActionListener(solveActionListener);
         mazeFrame.getStepButton().addActionListener(solveActionListener);
-        
+
         mazeFrame.getClearButton().addActionListener(e -> clearWalls());
-        
-        // Listeners del menú y diálogo
         mazeFrame.getVerResultadosMenuItem().addActionListener(e -> mostrarResultados());
-        
+
+        // El listener del botón "Limpiar" maneja la lógica de datos
         resultadosDialog.clearButton.addActionListener(e -> {
             int response = JOptionPane.showConfirmDialog(
                 resultadosDialog,
@@ -74,16 +74,12 @@ public class MazeController {
                 resultadosDialog.setResults(solveResults.getResults());
             }
         });
-
-        resultadosDialog.graphButton.addActionListener(e -> {
-            JOptionPane.showMessageDialog(resultadosDialog, "La función de graficar aún no está implementada.", "Próximamente", JOptionPane.INFORMATION_MESSAGE);
-        });
     }
 
+    // --- LÓGICA DE RESOLUCIÓN FINAL ---
     private void runAnimatedSolver(String algorithmName) {
         Cell start = findCell(CellState.START);
         Cell end = findCell(CellState.END);
-
         if (start == null || end == null) {
             JOptionPane.showMessageDialog(mazeFrame, "Debe definir un punto de INICIO y FIN.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
@@ -91,18 +87,30 @@ public class MazeController {
         clearVisualPath();
         setButtonsEnabled(false);
 
-        SwingWorker<List<Cell>, Cell> worker = new SwingWorker<>() {
-            long startTime;
+        SwingWorker<SolveResultPayload, Cell> worker = new SwingWorker<>() {
             @Override
-            protected List<Cell> doInBackground() throws Exception {
-                startTime = System.nanoTime();
+            protected SolveResultPayload doInBackground() throws Exception {
                 Consumer<Cell> stepPublisher = this::publish;
-                
                 MazeSolver solver = getSolverByName(algorithmName);
-                if (solver == null) {
-                    throw new UnsupportedOperationException("Algoritmo no reconocido: " + algorithmName);
+
+                // --- ¡AQUÍ ESTÁ LA LÓGICA CORREGIDA! ---
+                // 1. Medir el tiempo de ejecución real SIN animación
+                long startTime = System.nanoTime();
+                List<Cell> path = solver.solve(mazeGrid, start, end); // Usamos el método rápido
+                long duration = System.nanoTime() - startTime;
+                
+                // 2. Limpiar la grilla para la animación (solo los 'visited' falsos)
+                for(Cell[] row : mazeGrid) {
+                    for(Cell cell : row) {
+                        if (cell.getState() == CellState.VISITED) cell.setState(CellState.PATH);
+                    }
                 }
-                return solver.solveStepByStep(mazeGrid, start, end, stepPublisher);
+                
+                // 3. Ejecutar la animación visual (ya con el tiempo medido)
+                solver.solveStepByStep(mazeGrid, start, end, stepPublisher);
+                
+                // 4. Devolver el camino y la duración REAL
+                return new SolveResultPayload(path, duration);
             }
 
             @Override
@@ -118,14 +126,12 @@ public class MazeController {
             @Override
             protected void done() {
                 try {
-                    List<Cell> path = get();
-                    long duration = System.nanoTime() - startTime;
-                    // Al eliminar la limpieza previa, las celdas visitadas (amarillas) se quedan
-                    // y el camino final se dibuja encima, logrando el efecto deseado.
-                    addAlgoritmoResult(algorithmName, path, duration);
+                    SolveResultPayload result = get();
+                    clearVisualPath();
+                    addAlgoritmoResult(algorithmName, result.path(), result.duration());
                 } catch (Exception e) {
                     e.printStackTrace();
-                    JOptionPane.showMessageDialog(mazeFrame, "Ocurrió un error al resolver el laberinto:\n" + e.getCause(), "Error de Ejecución", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(mazeFrame, "Ocurrió un error al resolver:\n" + e.getCause(), "Error", JOptionPane.ERROR_MESSAGE);
                 } finally {
                     setButtonsEnabled(true);
                 }
@@ -138,8 +144,7 @@ public class MazeController {
         switch (name) {
             case "BFS": return new MazeSolverBFS();
             case "DFS": return new MazeSolverDFS();
-            case "Backtracking":
-            case "Recursivo Completo BT":
+            case "Backtracking": case "Recursivo Completo BT":
                 return new MazeSolverRecursivoCompletoBT();
             case "Recursivo": return new MazeSolverRecursivo();
             case "Recursivo Completo": return new MazeSolverRecursivoCompleto();

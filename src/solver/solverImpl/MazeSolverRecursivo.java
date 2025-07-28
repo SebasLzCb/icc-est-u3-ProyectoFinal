@@ -9,9 +9,8 @@ import models.CellState;
 import solver.MazeSolver;
 
 /**
- * Resuelve el laberinto usando un enfoque recursivo simple en 2 direcciones
- * (derecha y abajo). Esta versión NO usa backtracking explícito, construyendo
- * el camino solo al encontrar una ruta exitosa, para replicar el comportamiento visual deseado.
+ * Solves the maze using a simple recursive approach in 2 directions (Right, then Down).
+ * This version does NOT use explicit backtracking, building the path only upon finding a successful route.
  */
 public class MazeSolverRecursivo implements MazeSolver {
 
@@ -20,7 +19,7 @@ public class MazeSolverRecursivo implements MazeSolver {
         List<Cell> path = new ArrayList<>();
         boolean[][] visited = new boolean[maze.length][maze[0].length];
         if (findPath(maze, start, end, visited, path)) {
-            Collections.reverse(path); // El camino se construye al revés
+            Collections.reverse(path);
             return path;
         }
         return Collections.emptyList();
@@ -41,23 +40,21 @@ public class MazeSolverRecursivo implements MazeSolver {
             return true;
         }
 
-        // --- LÓGICA CORREGIDA (SIN BACKTRACKING) ---
-        // 1. Explorar derecha primero
+        // --- PROFESSOR'S EXPLORATION ORDER ---
+        // 1. Explore Right FIRST
         if (col + 1 < maze[0].length) {
             if (findPath(maze, maze[row][col + 1], end, visited, path)) {
-                path.add(current); // Solo añade al camino si la ruta tuvo éxito
+                path.add(current);
                 return true;
             }
         }
-        // 2. Explorar abajo después
+        // 2. Explore Down SECOND
         if (row + 1 < maze.length) {
             if (findPath(maze, maze[row + 1][col], end, visited, path)) {
-                path.add(current); // Solo añade al camino si la ruta tuvo éxito
+                path.add(current);
                 return true;
             }
         }
-        
-        // Si ninguna dirección funcionó, simplemente retorna false sin retroceder.
         return false;
     }
 
@@ -81,16 +78,15 @@ public class MazeSolverRecursivo implements MazeSolver {
             return false;
         }
         visited[row][col] = true;
-        
         stepCallback.accept(current);
-        Thread.sleep(50); // Aumentamos un poco la pausa para que se vea mejor
+        Thread.sleep(50);
 
         if (current == end) {
             path.add(current);
             return true;
         }
         
-        // --- LÓGICA CORREGIDA (SIN BACKTRACKING) ---
+        // --- PROFESSOR'S EXPLORATION ORDER ---
         if (col + 1 < maze[0].length) {
             if (findPathStepByStep(maze, maze[row][col + 1], end, visited, path, stepCallback)) {
                 path.add(current);
