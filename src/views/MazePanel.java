@@ -1,8 +1,8 @@
+// src/views/MazePanel.java
 package views;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.List; // Se puede quitar si no se usa en otro lado
 import models.Cell;
 import models.CellState;
 
@@ -12,7 +12,8 @@ public class MazePanel extends JPanel {
     private Cell[][] mazeGrid;
 
     public MazePanel() {
-        // El constructor está bien como estaba
+        // El panel de dibujo es pasivo, solo responde a las órdenes
+        // del controlador. Aquí se añadirán los listeners.
     }
 
     public void setMazeGrid(Cell[][] mazeGrid) {
@@ -20,42 +21,52 @@ public class MazePanel extends JPanel {
         int width = mazeGrid[0].length * CELL_SIZE;
         int height = mazeGrid.length * CELL_SIZE;
         setPreferredSize(new Dimension(width, height));
+        revalidate(); // Avisa al layout manager que el tamaño ha cambiado
         repaint();
     }
     
-    // Este método ya no es necesario, el controlador se encargará de cambiar los estados
-    // public void showSolutionPath(List<Cell> path) { ... }
+ // En src/views/MazePanel.java
+
+@Override
+protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
+    if (mazeGrid == null) return;
+
+    // --- ¡ESTA ES LA LÓGICA CLAVE! ---
+    // Calcula el tamaño de cada celda dinámicamente
+    int panelWidth = getWidth();
+    int panelHeight = getHeight();
+    int numRows = mazeGrid.length;
+    int numCols = mazeGrid[0].length;
     
-    // Este método ya no es necesario, el controlador lo manejará
-    // public void clearSolution() { ... }
+    // El tamaño de la celda es el espacio disponible dividido por el número de celdas
+    int cellWidth = panelWidth / numCols;
+    int cellHeight = panelHeight / numRows;
 
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        if (mazeGrid == null) return;
-
-        // El panel simplemente dibuja el estado actual del grid.
-        for (int row = 0; row < mazeGrid.length; row++) {
-            for (int col = 0; col < mazeGrid[0].length; col++) {
-                // Obtiene el color directamente del estado de la celda.
-                g.setColor(getColorForState(mazeGrid[row][col].getState()));
-                g.fillRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-                g.setColor(Color.BLACK);
-                g.drawRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            }
+    // Dibuja el laberinto usando el tamaño calculado
+    for (int row = 0; row < numRows; row++) {
+        for (int col = 0; col < numCols; col++) {
+            g.setColor(getColorForState(mazeGrid[row][col].getState()));
+            g.fillRect(col * cellWidth, row * cellHeight, cellWidth, cellHeight);
+            g.setColor(Color.LIGHT_GRAY); // Un color más suave para los bordes
+            g.drawRect(col * cellWidth, row * cellHeight, cellWidth, cellHeight);
         }
     }
+}
 
     private Color getColorForState(CellState state) {
         switch (state) {
             case START: return Color.GREEN;
             case END: return Color.RED;
             case WALL: return Color.DARK_GRAY;
-            case PATH: return Color.WHITE; // Caminos normales son blancos
-            case SOLUTION: return Color.CYAN; // El camino de la solución será cian
-            // El estado VISITED ya no se usará para dibujar, pero lo dejamos por si acaso.
-            case VISITED: return Color.LIGHT_GRAY; 
-            default: return Color.BLACK; // Si algo sale mal, que se vea negro
+            case PATH: return Color.WHITE;
+            case SOLUTION: return Color.CYAN;
+            case VISITED: return Color.YELLOW; // Para el modo paso a paso
+            default: return Color.BLACK;
         }
+    }
+    
+    public int getCellSize() {
+        return CELL_SIZE;
     }
 }

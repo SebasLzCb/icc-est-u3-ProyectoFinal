@@ -1,73 +1,87 @@
-// src/views/MazeFrame.java
-
+// En src/views/MazeFrame.java
 package views;
 
 import javax.swing.*;
 import java.awt.*;
-import controllers.MazeController;
 
 public class MazeFrame extends JFrame {
 
     private final MazePanel mazePanel;
-    private final JButton bfsButton, dfsButton, recursiveBtButton, resultsButton, clearButton;
+    private final JRadioButton setStartButton, setEndButton, toggleWallButton;
+    private final JComboBox<String> algorithmComboBox;
+    private final JButton solveButton, clearButton, stepButton; // Botón "Paso a paso"
+    private final JMenuItem verResultadosMenuItem;
+     // Opción del menú
 
     public MazeFrame() {
-        setTitle("Solucionador de Laberintos");
+        setTitle("Creador y Solucionador de Laberintos");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // 1. Panel del Laberinto (Centro)
-        mazePanel = new MazePanel();
-        add(mazePanel, BorderLayout.CENTER);
-
-        // 2. Panel de Controles (Sur)
-        JPanel controlPanel = new JPanel();
-        controlPanel.setLayout(new FlowLayout());
-
-        bfsButton = new JButton("Resolver con BFS");
-        dfsButton = new JButton("Resolver con DFS");
-        recursiveBtButton = new JButton("Resolver con Backtracking");
-        resultsButton = new JButton("Ver Resultados");
-        clearButton = new JButton("Limpiar Solución");
-
-        controlPanel.add(new JLabel("Algoritmos:"));
-        controlPanel.add(bfsButton);
-        controlPanel.add(dfsButton);
-        controlPanel.add(recursiveBtButton);
-        controlPanel.add(new JSeparator(SwingConstants.VERTICAL));
-        controlPanel.add(resultsButton);
-        controlPanel.add(clearButton);
+        // --- 1. BARRA DE MENÚ SUPERIOR ---
+        JMenuBar menuBar = new JMenuBar();
+        JMenu archivoMenu = new JMenu("Archivo");
+        verResultadosMenuItem = new JMenuItem("Ver Resultados");
+        JMenuItem nuevoLaberintoItem = new JMenuItem("Nuevo Laberinto"); // Opcional, pero buena idea
         
-        add(controlPanel, BorderLayout.SOUTH);
+        archivoMenu.add(nuevoLaberintoItem);
+        archivoMenu.add(verResultadosMenuItem);
+        menuBar.add(archivoMenu);
+        setJMenuBar(menuBar);
 
-        pack(); // Ajusta el tamaño de la ventana a los componentes
-        setLocationRelativeTo(null); // Centra la ventana
-        setVisible(true);
+        // --- 2. PANEL DE HERRAMIENTAS DE EDICIÓN (ARRIBA) ---
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        topPanel.setBorder(BorderFactory.createTitledBorder("Modo de Edición"));
+        
+        setStartButton = new JRadioButton("Poner Inicio");
+        setEndButton = new JRadioButton("Poner Fin");
+        toggleWallButton = new JRadioButton("Poner/Quitar Muro", true);
+
+        ButtonGroup editGroup = new ButtonGroup();
+        editGroup.add(setStartButton);
+        editGroup.add(setEndButton);
+        editGroup.add(toggleWallButton);
+
+        topPanel.add(setStartButton);
+        topPanel.add(setEndButton);
+        topPanel.add(toggleWallButton);
+        add(topPanel, BorderLayout.NORTH);
+
+        // --- 3. PANEL DEL LABERINTO (CENTRO) ---
+        // Este panel se crea en el controlador ahora para tener las dimensiones
+        mazePanel = new MazePanel();
+        add(new JScrollPane(mazePanel), BorderLayout.CENTER);
+
+        // --- 4. PANEL DE ACCIONES (ABAJO) ---
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        bottomPanel.setBorder(BorderFactory.createTitledBorder("Acciones"));
+        
+        // ¡Aquí añadimos todos tus algoritmos!
+        algorithmComboBox = new JComboBox<>(new String[]{"BFS", "DFS", "Recursivo BT", "Recursivo (2-dir)", "Recursivo (4-dir)"});
+        solveButton = new JButton("Resolver");
+        stepButton = new JButton("Paso a paso"); // Nuevo botón
+        clearButton = new JButton("Limpiar Muros");
+
+        bottomPanel.add(new JLabel("Algoritmo:"));
+        bottomPanel.add(algorithmComboBox);
+        bottomPanel.add(solveButton);
+        bottomPanel.add(stepButton); // Añadido al panel
+        bottomPanel.add(clearButton);
+        add(bottomPanel, BorderLayout.SOUTH);
+
+        setSize(800, 600); // Un tamaño inicial más grande
+        setLocationRelativeTo(null);
+
     }
 
-    // --- Métodos para que el controlador acceda a los componentes ---
-
-    public MazePanel getMazePanel() {
-        return mazePanel;
-    }
-
-    public JButton getBfsButton() {
-        return bfsButton;
-    }
-
-    public JButton getDfsButton() {
-        return dfsButton;
-    }
-    
-    public JButton getRecursiveBtButton() {
-        return recursiveBtButton;
-    }
-
-    public JButton getResultsButton() {
-        return resultsButton;
-    }
-    
-    public JButton getClearButton() {
-        return clearButton;
-    }
+    // --- Getters para que el Controlador pueda acceder a todo ---
+    public MazePanel getMazePanel() { return mazePanel; }
+    public JRadioButton getSetStartButton() { return setStartButton; }
+    public JRadioButton getSetEndButton() { return setEndButton; }
+    public JRadioButton getToggleWallButton() { return toggleWallButton; }
+    public JComboBox<String> getAlgorithmComboBox() { return algorithmComboBox; }
+    public JButton getSolveButton() { return solveButton; }
+    public JButton getClearButton() { return clearButton; }
+    public JButton getStepButton() { return stepButton; }
+    public JMenuItem getVerResultadosMenuItem() { return verResultadosMenuItem; }
 }

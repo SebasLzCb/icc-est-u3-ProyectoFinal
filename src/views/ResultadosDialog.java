@@ -13,30 +13,48 @@ public class ResultadosDialog extends JDialog {
     private final JTable resultsTable;
     private final DefaultTableModel tableModel;
 
-    public ResultadosDialog(Frame owner) {
-        super(owner, "Resultados de los Algoritmos", true); // `true` para que sea modal
-        
-        // 1. Configurar el modelo de la tabla
-        String[] columnNames = {"Algoritmo", "Tiempo de Ejecución (ms)", "Longitud del Camino"};
-        tableModel = new DefaultTableModel(columnNames, 0);
-        resultsTable = new JTable(tableModel);
+// Reemplaza el constructor en src/views/ResultadosDialog.java
+public ResultadosDialog(Frame owner) {
+    super(owner, "Resultados Guardados", true);
 
-        // 2. Añadir la tabla a un panel con scroll
-        JScrollPane scrollPane = new JScrollPane(resultsTable);
-        
-        // 3. (Opcional) Panel para el gráfico
-        // Aquí iría el ChartPanel de JFreeChart si se implementa
-        JPanel chartPanel = new JPanel();
-        chartPanel.add(new JLabel("El gráfico de JFreeChart iría aquí."));
+    // --- Configuración de la tabla (esto se mantiene igual) ---
+    String[] columnNames = {"Algoritmo", "Tiempo de Ejecución (ms)", "Celdas Camino"};
+    tableModel = new DefaultTableModel(columnNames, 0);
+    resultsTable = new JTable(tableModel);
+    JScrollPane scrollPane = new JScrollPane(resultsTable);
 
-        // 4. Configurar el layout del diálogo
-        setLayout(new BorderLayout());
-        add(scrollPane, BorderLayout.CENTER);
-        add(chartPanel, BorderLayout.SOUTH);
-        
-        setSize(600, 400);
-        setLocationRelativeTo(owner);
-    }
+    // --- NUEVO: Panel de Botones (Sur) ---
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    JButton clearButton = new JButton("Limpiar Resultados");
+    JButton graphButton = new JButton("Graficar Resultados");
+    buttonPanel.add(clearButton);
+    buttonPanel.add(graphButton);
+
+    // --- Configurar el Layout del Diálogo ---
+    setLayout(new BorderLayout());
+    add(scrollPane, BorderLayout.CENTER);
+    add(buttonPanel, BorderLayout.SOUTH); // Añadimos el panel de botones
+
+    // --- ACCIONES DE LOS BOTONES ---
+    clearButton.addActionListener(e -> {
+        int response = JOptionPane.showConfirmDialog(this,
+                "¿Estás seguro de que quieres borrar todos los resultados guardados?",
+                "Confirmar Limpieza", JOptionPane.YES_NO_OPTION);
+        if (response == JOptionPane.YES_OPTION) {
+            // Lógica para limpiar la tabla y los datos. El controlador se encargará de esto.
+            // Por ahora, simplemente vaciamos la tabla visible.
+            tableModel.setRowCount(0);
+            // Aquí se debería llamar al controlador para que borre los datos del modelo.
+        }
+    });
+
+    graphButton.addActionListener(e -> {
+        JOptionPane.showMessageDialog(this, "La función de graficar aún no está implementada.", "Próximamente", JOptionPane.INFORMATION_MESSAGE);
+    });
+
+    setSize(600, 400);
+    setLocationRelativeTo(owner);
+}
 
     /**
      * Llena la tabla con la lista de resultados.
