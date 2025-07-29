@@ -52,6 +52,13 @@ Proporciona una interfaz abstracta para acceder a los datos, desacoplando la ló
 
 - ## Diagrama UML
 
+Aquí se presenta el diagrama de clases UML del proyecto, el cual ilustra la arquitectura de la aplicación basada en los patrones de diseño Modelo-Vista-Controlador (MVC), Data Access Object (DAO) y Estrategia para los algoritmos de resolución.
+
+![alt text](<Imagen de WhatsApp 2025-07-28 a las 22.46.51_7b5e5d5f.jpg>)
+
+El diagrama de clases UML de este proyecto visualiza una arquitectura modular basada en los patrones Modelo-Vista-Controlador (MVC), Data Access Object (DAO) y Estrategia, facilitando una clara separación de responsabilidades: el Modelo (compuesto por Cell y CellState para la representación del laberinto, y AlgorithmResult con SolveResults para la encapsulación de los datos de ejecución) gestiona la lógica de negocio y el estado del laberinto; la capa DAO (definida por la interfaz AlgorithmResultDAO e implementada por AlgorithmResultDAOFile) se encarga de la persistencia y recuperación de los resultados de los algoritmos en un archivo CSV; la Vista (MazeFrame, MazePanel y ResultadosDialog) se ocupa de la presentación de la interfaz gráfica y la visualización del laberinto y sus soluciones; mientras que el Controlador (MazeController, orquestado por App) actúa como el núcleo central, interpretando las interacciones del usuario, actualizando el modelo, y delegando la lógica de resolución a las distintas implementaciones de la interfaz MazeSolver (como MazeSolverBFS, MazeSolverDFS, MazeSolverRecursivo, MazeSolverRecursivoCompleto y MazeSolverRecursivoCompletoBT, que representan las diferentes Estrategias algorítmicas), con RecursiveStepFrame como auxiliar para el control paso a paso.
+
+
 
 - ## Capturas
 A continuación, se presentan dos ejemplos de la interfaz de usuario, mostrando la resolución de laberintos con 
