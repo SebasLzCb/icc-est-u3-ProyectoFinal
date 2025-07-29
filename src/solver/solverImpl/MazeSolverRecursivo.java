@@ -9,11 +9,15 @@ import models.CellState;
 import solver.MazeSolver;
 
 /**
- * Solves the maze using a simple recursive approach in 2 directions (Right, then Down).
- * This version does NOT use explicit backtracking, building the path only upon finding a successful route.
+ * Resuelve el laberinto usando un enfoque recursivo simple en 2 direcciones (derecha y abajo).
+ * Esta versión no utiliza backtracking explícito, construyendo el camino solo al encontrar
+ * una ruta exitosa, para replicar un comportamiento visual específico.
  */
 public class MazeSolverRecursivo implements MazeSolver {
 
+    /**
+     * Resuelve el laberinto de forma rápida, sin animación.
+     */
     @Override
     public List<Cell> solve(Cell[][] maze, Cell start, Cell end) {
         List<Cell> path = new ArrayList<>();
@@ -25,6 +29,9 @@ public class MazeSolverRecursivo implements MazeSolver {
         return Collections.emptyList();
     }
 
+    /**
+     * Función recursiva privada que busca el camino.
+     */
     private boolean findPath(Cell[][] maze, Cell current, Cell end, boolean[][] visited, List<Cell> path) {
         int row = current.getRow();
         int col = current.getCol();
@@ -40,15 +47,15 @@ public class MazeSolverRecursivo implements MazeSolver {
             return true;
         }
 
-        // --- PROFESSOR'S EXPLORATION ORDER ---
-        // 1. Explore Right FIRST
+        // --- ¡AQUÍ ESTÁ LA CORRECCIÓN CLAVE! ---
+        // 1. Explorar derecha PRIMERO (solo si no estamos en el borde derecho)
         if (col + 1 < maze[0].length) {
             if (findPath(maze, maze[row][col + 1], end, visited, path)) {
                 path.add(current);
                 return true;
             }
         }
-        // 2. Explore Down SECOND
+        // 2. Explorar abajo DESPUÉS (solo si no estamos en el borde inferior)
         if (row + 1 < maze.length) {
             if (findPath(maze, maze[row + 1][col], end, visited, path)) {
                 path.add(current);
@@ -58,6 +65,9 @@ public class MazeSolverRecursivo implements MazeSolver {
         return false;
     }
 
+    /**
+     * Resuelve el laberinto mostrando una animación paso a paso.
+     */
     @Override
     public List<Cell> solveStepByStep(Cell[][] maze, Cell start, Cell end, Consumer<Cell> stepCallback) throws InterruptedException {
         List<Cell> path = new ArrayList<>();
@@ -69,6 +79,9 @@ public class MazeSolverRecursivo implements MazeSolver {
         return Collections.emptyList();
     }
 
+    /**
+     * Versión animada de la función recursiva.
+     */
     private boolean findPathStepByStep(Cell[][] maze, Cell current, Cell end, boolean[][] visited, List<Cell> path, Consumer<Cell> stepCallback) throws InterruptedException {
         int row = current.getRow();
         int col = current.getCol();
@@ -78,6 +91,7 @@ public class MazeSolverRecursivo implements MazeSolver {
             return false;
         }
         visited[row][col] = true;
+        
         stepCallback.accept(current);
         Thread.sleep(50);
 
@@ -86,7 +100,7 @@ public class MazeSolverRecursivo implements MazeSolver {
             return true;
         }
         
-        // --- PROFESSOR'S EXPLORATION ORDER ---
+        // --- ¡AQUÍ ESTÁ LA CORRECCIÓN CLAVE! ---
         if (col + 1 < maze[0].length) {
             if (findPathStepByStep(maze, maze[row][col + 1], end, visited, path, stepCallback)) {
                 path.add(current);
