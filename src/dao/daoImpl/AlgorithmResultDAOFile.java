@@ -15,8 +15,11 @@ import java.util.List;
 public class AlgorithmResultDAOFile implements AlgorithmResultDAO {
     // La ruta del archivo CSV donde se guardarán los resultados.
     private final String filePath = "results.csv";
-    // La cabecera estándar para el archivo CSV.
+    // La cabecera estándar para el archivo CSV. Ahora incluye PathLength y Found
     private static final String HEADER = "Algorithm,ExecutionTime(ns),PathLength,Found";
+
+    // Objeto para sincronizar el acceso al archivo
+    private final Object fileLock = new Object();
 
     /**
      * Constructor de la clase.
@@ -24,14 +27,21 @@ public class AlgorithmResultDAOFile implements AlgorithmResultDAO {
      * añade la cabecera (HEADER).
      */
     public AlgorithmResultDAOFile() {
-        File file = new File(filePath);
-        if (!file.exists()) {
-            // Usamos try-with-resources para asegurar que el writer se cierre automáticamente.
-            try (PrintWriter writer = new PrintWriter(new FileWriter(filePath))) {
-                writer.println(HEADER);
-            } catch (IOException e) {
-                // Imprime la traza del error si ocurre un problema al crear el archivo.
-                e.printStackTrace();
+        System.out.println("DEBUG: Constructor de AlgorithmResultDAOFile llamado.");
+        synchronized (fileLock) { // Sincronizar el bloque para asegurar que solo una instancia acceda al archivo al inicio
+            File file = new File(filePath);
+            if (!file.exists()) {
+                System.out.println("DEBUG: results.csv no existe. Intentando crearlo.");
+                try (PrintWriter writer = new PrintWriter(new FileWriter(file, false))) { // Usar 'file' en lugar de 'filePath'
+                    writer.println(HEADER);
+                    writer.flush(); // Asegurarse de que el contenido se escriba inmediatamente
+                    System.out.println("DEBUG: results.csv creado y cabecera escrita.");
+                } catch (IOException e) {
+                    System.err.println("ERROR: Fallo al crear results.csv: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            } else {
+                System.out.println("DEBUG: results.csv ya existe.");
             }
         }
     }
@@ -43,18 +53,20 @@ public class AlgorithmResultDAOFile implements AlgorithmResultDAO {
      */
     @Override
     public void saveResult(AlgorithmResult result) {
-        // Usamos try-with-resources con 'true' para abrir el archivo en modo "append" (añadir).
-        try (PrintWriter writer = new PrintWriter(new FileWriter(filePath, true))) {
-            // Formatea los datos del resultado en una cadena separada por comas.
-            String line = String.format("%s,%d,%d,%b",
-                    result.getAlgorithmName(),
-                    result.getExecutionTime(),
-                    result.getPathLength(),
-                    !result.getPath().isEmpty());
-            // Escribe la nueva línea en el archivo.
-            writer.println(line);
-        } catch (IOException e) {
-            e.printStackTrace();
+        synchronized (fileLock) { // Sincronizar el acceso para escribir
+            try (PrintWriter writer = new PrintWriter(new FileWriter(filePath, true))) {
+                String line = String.format("%s,%d,%d,%b",
+                        result.getAlgorithmName(),
+                        result.getExecutionTime(),
+                        result.getPathLength(),
+                        !result.getPath().isEmpty());
+                writer.println(line);
+                writer.flush(); // Asegurarse de que el contenido se escriba inmediatamente
+                System.out.println("DEBUG: Resultado guardado: " + line);
+            } catch (IOException e) {
+                System.err.println("ERROR: Fallo al guardar resultado en results.csv: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
     }
 
@@ -65,25 +77,29 @@ public class AlgorithmResultDAOFile implements AlgorithmResultDAO {
     @Override
     public List<AlgorithmResult> getAllResults() {
         List<AlgorithmResult> results = new ArrayList<>();
-        // Usamos try-with-resources para que el reader se cierre automáticamente.
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-            String line = reader.readLine(); // Saltar la línea de la cabecera.
-            
-            // Lee el archivo línea por línea hasta el final.
-            while ((line = reader.readLine()) != null) {
-                String[] data = line.split(","); // Divide la línea por las comas.
-                if (data.length >= 3) {
-                    String name = data[0];
-                    long time = Long.parseLong(data[1]);
-                    int length = Integer.parseInt(data[2]);
-                    // Creamos un objeto AlgorithmResult con los datos.
-                    // Se usa un path vacío porque no guardamos la ruta completa, solo los datos métricos.
-                    results.add(new AlgorithmResult(name, time, Collections.emptyList()));
-                }
+        synchronized (fileLock) { // Sincronizar el acceso para leer
+            // Verificar si el archivo existe antes de intentar leerlo
+            File file = new File(filePath);
+            if (!file.exists()) {
+                System.out.println("DEBUG: results.csv no encontrado al intentar leer. Retornando lista vacía.");
+                return Collections.emptyList();
             }
-        } catch (IOException | NumberFormatException e) {
-            // Captura errores de lectura de archivo o de conversión de números.
-            e.printStackTrace();
+            try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+                String line = reader.readLine(); // Saltar la línea de la cabecera.
+                while ((line = reader.readLine()) != null) {
+                    String[] data = line.split(",");
+                    if (data.length >= 3) {
+                        String name = data[0];
+                        long time = Long.parseLong(data[1]);
+                        int length = Integer.parseInt(data[2]);
+                        results.add(new AlgorithmResult(name, time, length));
+                    }
+                }
+                System.out.println("DEBUG: " + results.size() + " resultados leídos de results.csv.");
+            } catch (IOException | NumberFormatException e) {
+                System.err.println("ERROR: Fallo al leer results.csv: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
         return results;
     }
@@ -93,11 +109,16 @@ public class AlgorithmResultDAOFile implements AlgorithmResultDAO {
      */
     @Override
     public void clearResults() {
-        // Usamos try-with-resources con 'false' para sobreescribir (truncar) el archivo.
-        try (PrintWriter writer = new PrintWriter(new FileWriter(filePath, false))) {
-            writer.println(HEADER); // Trunca el archivo y escribe solo la cabecera.
-        } catch (IOException e) {
-            e.printStackTrace();
+        synchronized (fileLock) { // Sincronizar el acceso para limpiar
+            System.out.println("DEBUG: Intentando limpiar results.csv.");
+            try (PrintWriter writer = new PrintWriter(new FileWriter(filePath, false))) { // false para sobrescribir
+                writer.println(HEADER); // Trunca el archivo y escribe solo la cabecera.
+                writer.flush(); // Asegurarse de que el contenido se escriba inmediatamente
+                System.out.println("DEBUG: results.csv limpiado exitosamente.");
+            } catch (IOException e) {
+                System.err.println("ERROR: Fallo al limpiar results.csv: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
     }
 }

@@ -6,6 +6,8 @@ import solver.solverImpl.*;
 import views.MazeFrame;
 import views.MazePanel;
 import views.ResultadosDialog;
+import dao.AlgorithmResultDAO; // Importar la interfaz DAO
+import dao.daoImpl.AlgorithmResultDAOFile; // Importar la implementación DAO
 
 import javax.swing.*;
 import java.awt.event.ActionListener;
@@ -25,7 +27,7 @@ public class MazeController {
     private record SolveResultPayload(List<Cell> path, long duration) {}
 
     private Cell[][] mazeGrid;
-    private final SolveResults solveResults;
+    private final SolveResults solveResults; // Este es tu contenedor in-memory de resultados
     private final MazeFrame mazeFrame;
     private final MazePanel mazePanel;
     private final ResultadosDialog resultadosDialog;
@@ -38,11 +40,19 @@ public class MazeController {
     private Cell stepByStepEnd;
     private String currentStepAlgorithmName;
 
+    // --- AÑADIR LA INSTANCIA DEL DAO ---
+    private final AlgorithmResultDAO resultDAO;
+
     public MazeController(MazeFrame mazeFrame, int rows, int cols) {
         this.mazeFrame = mazeFrame;
         this.mazePanel = mazeFrame.getMazePanel();
         this.resultadosDialog = new ResultadosDialog(mazeFrame);
-        this.solveResults = new SolveResults();
+        this.solveResults = new SolveResults(); 
+        // INSTANCIAR EL DAO AQUÍ
+        this.resultDAO = new AlgorithmResultDAOFile(); // Esto llamará al constructor del DAO y creará el CSV
+        // Cargar los resultados existentes del archivo al iniciar el controlador
+        this.solveResults.getResults().addAll(resultDAO.getAllResults()); 
+
         this.mazeGrid = createDefaultMaze(rows, cols);
         this.mazePanel.setMazeGrid(this.mazeGrid);
         initializeListeners();
@@ -83,8 +93,9 @@ public class MazeController {
                 "¿Estás seguro de que quieres borrar todos los resultados de la tabla?",
                 "Confirmar Limpieza", JOptionPane.YES_NO_OPTION);
             if (response == JOptionPane.YES_OPTION) {
-                solveResults.clearResults();
-                resultadosDialog.setResults(solveResults.getResults());
+                solveResults.clearResults(); // Limpia la lista en memoria
+                resultDAO.clearResults();    // Limpia el archivo CSV
+                resultadosDialog.setResults(solveResults.getResults()); // Actualiza la vista
             }
         });
     }
@@ -121,7 +132,8 @@ public class MazeController {
                 try {
                     SolveResultPayload result = get();
                     clearVisualPath(); // Asegura limpieza visual si había algo anterior
-                    addAlgoritmoResult(algorithmName, result.path(), result.duration());
+                    addAlgoritmoResult(algorithmName, result.path(), result.duration()); // Guarda en memoria y visualiza
+                    resultDAO.saveResult(new AlgorithmResult(algorithmName, result.duration(), result.path())); // GUARDA EN EL ARCHIVO CSV
 
                     if (result.path().isEmpty()) {
                         JOptionPane.showMessageDialog(mazeFrame, "No se encontró un camino al destino.", "Sin Solución", JOptionPane.INFORMATION_MESSAGE);
@@ -170,9 +182,12 @@ public class MazeController {
             currentStepSolver.initializeStepByStep(mazeGrid, stepByStepStart, stepByStepEnd);
             stepByStepActive = true;
             
-            // Opcional: Deshabilitar botones de edición mientras el paso a paso está activo
+            // Deshabilitar botones de edición y resolver mientras el paso a paso está activo
             mazeFrame.getSolveButton().setEnabled(false);
             mazeFrame.getClearButton().setEnabled(false);
+            mazeFrame.getSetStartButton().setEnabled(false);
+            mazeFrame.getSetEndButton().setEnabled(false);
+            mazeFrame.getToggleWallButton().setEnabled(false);
             // El botón de "Paso a paso" se mantiene habilitado para seguir haciendo clics.
 
         }
@@ -191,13 +206,16 @@ public class MazeController {
             // Verificar si la búsqueda ha terminado después de este paso
             if (currentStepSolver.isStepByStepFinished()) {
                 List<Cell> finalPath = currentStepSolver.getFinalPath();
-                long duration = 0; // En modo paso a paso manual, el tiempo real no es tan relevante por clic,
-                                   // pero podrías calcularlo si mantienes un startTime global para el step-by-step.
-                                   // Para este ejemplo, lo dejamos en 0 o puedes quitarlo si no lo registras.
+                long duration = 0; // En modo paso a paso manual, el tiempo de cada "doStep" no se mide así.
+                                   // Para fines de registro, podrías iniciar un cronómetro al comienzo del
+                                   // step-by-step y detenerlo aquí. Por ahora, lo dejamos en 0.
                 
                 // Limpia los estados VISITADOS antes de pintar la solución final
                 clearVisualPath(); 
+                // Añade el resultado de la búsqueda manual (tiempo 0 si no se mide específicamente para esto)
                 addAlgoritmoResult(currentStepAlgorithmName, finalPath, duration);
+                // GUARDA EN EL ARCHIVO CSV
+                resultDAO.saveResult(new AlgorithmResult(currentStepAlgorithmName, duration, finalPath));
 
                 if (finalPath.isEmpty()) {
                     JOptionPane.showMessageDialog(mazeFrame, "No se encontró un camino al destino en el modo paso a paso.", "Sin Solución", JOptionPane.INFORMATION_MESSAGE);
@@ -247,7 +265,7 @@ public class MazeController {
         mazeFrame.getSolveButton().setEnabled(enabled);
         mazeFrame.getStepButton().setEnabled(enabled);
         mazeFrame.getClearButton().setEnabled(enabled);
-        // También podrías habilitar/deshabilitar los botones de edición de laberinto aquí si lo deseas
+        // Habilita/deshabilita los botones de edición también
         mazeFrame.getSetStartButton().setEnabled(enabled);
         mazeFrame.getSetEndButton().setEnabled(enabled);
         mazeFrame.getToggleWallButton().setEnabled(enabled);
@@ -256,7 +274,7 @@ public class MazeController {
     private void handlePanelClick(int row, int col) {
         // Si el modo paso a paso está activo, no permitimos la edición del laberinto.
         if (stepByStepActive) {
-            JOptionPane.showMessageDialog(mazeFrame, "No se puede editar el laberinto mientras el modo paso a paso está activo.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(mazeFrame, "No se puede editar el laberinto mientras el modo paso a paso está activo. Finalice la búsqueda o reinicie el laberinto.", "Advertencia", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -286,7 +304,8 @@ public class MazeController {
     private void addAlgoritmoResult(String algorithmName, List<Cell> path, long executionTime) {
         // Elimina el resultado anterior si el algoritmo ya existía para evitar duplicados en la tabla.
         solveResults.getResults().removeIf(res -> res.getAlgorithmName().equals(algorithmName));
-        solveResults.addResult(new AlgorithmResult(algorithmName, executionTime, path));
+        // Añade el nuevo resultado al modelo en memoria.
+        solveResults.addResult(new AlgorithmResult(algorithmName, executionTime, path)); 
         
         // Marca las celdas de la ruta de la solución final.
         for (Cell cell : path) {
@@ -300,11 +319,20 @@ public class MazeController {
     
     private void mostrarResultados() {
         // Actualiza y muestra el diálogo de resultados con los datos actuales.
+        // Los datos se leen del DAO cada vez que se muestra el diálogo para asegurar que estén al día con el CSV.
+        solveResults.getResults().clear(); // Limpia la memoria antes de recargar
+        solveResults.getResults().addAll(resultDAO.getAllResults()); // Carga desde el archivo
         resultadosDialog.setResults(solveResults.getResults());
         resultadosDialog.setVisible(true);
     }
     
     private void clearWalls() {
+        // Si el modo paso a paso está activo, no permitimos limpiar.
+        if (stepByStepActive) {
+            JOptionPane.showMessageDialog(mazeFrame, "No se puede limpiar el laberinto mientras el modo paso a paso está activo. Finalice la búsqueda o reinicie el laberinto.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         // Restablece todas las celdas que son muros, solución o visitadas a PATH.
         for (Cell[] row : mazeGrid) {
             for (Cell cell : row) {
