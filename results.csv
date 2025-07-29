@@ -1,1 +1,4 @@
 Algorithm,ExecutionTime(ns),PathLength,Found
+Recursivo,32700,9,true
+Recursivo Completo,33700,9,true
+Recursivo Completo,11000,9,true

@@ -1,11 +1,13 @@
 package views;
 
 import javax.swing.*;
+
+import controllers.App;
+
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URI;
-import controllers.App; // Asegúrate de que App esté en el paquete controllers
 
 /**
  * Representa la ventana principal (JFrame) de la aplicación.

@@ -4,6 +4,7 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import views.MazeFrame;
 
+
 /**
  * Clase principal que inicia la aplicación del solucionador de laberintos.
  * Su única responsabilidad es configurar y lanzar la interfaz gráfica de usuario (GUI).
