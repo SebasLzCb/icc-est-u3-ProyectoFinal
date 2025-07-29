@@ -31,6 +31,13 @@ public class MazeController {
     private final ResultadosDialog resultadosDialog;
     private String currentEditMode = "Toggle Wall";
 
+    // --- NUEVAS VARIABLES PARA EL MODO PASO A PASO MANUAL ---
+    private MazeSolver currentStepSolver;
+    private boolean stepByStepActive = false;
+    private Cell stepByStepStart;
+    private Cell stepByStepEnd;
+    private String currentStepAlgorithmName;
+
     public MazeController(MazeFrame mazeFrame, int rows, int cols) {
         this.mazeFrame = mazeFrame;
         this.mazePanel = mazeFrame.getMazePanel();
@@ -56,12 +63,16 @@ public class MazeController {
             }
         });
 
-        ActionListener solveActionListener = e -> {
+        // Listener para el botón "Resolver" (ejecución automática)
+        mazeFrame.getSolveButton().addActionListener(e -> {
             String selectedAlgorithm = (String) mazeFrame.getAlgorithmComboBox().getSelectedItem();
-            runAnimatedSolver(selectedAlgorithm);
-        };
-        mazeFrame.getSolveButton().addActionListener(solveActionListener);
-        mazeFrame.getStepButton().addActionListener(solveActionListener);
+            runAutomaticSolver(selectedAlgorithm); // Llama al nuevo método para ejecución automática
+        });
+
+        // Listener para el botón "Paso a paso" (ejecución manual por clic)
+        mazeFrame.getStepButton().addActionListener(e -> {
+            handleStepByStepClick(); // Llama al nuevo método para el paso a paso manual
+        });
 
         mazeFrame.getClearButton().addActionListener(e -> clearWalls());
         mazeFrame.getVerResultadosMenuItem().addActionListener(e -> mostrarResultados());
@@ -79,11 +90,11 @@ public class MazeController {
     }
 
     /**
-     * Inicia la resolución del laberinto en un hilo separado para no congelar la interfaz.
-     * Mide el tiempo de ejecución real y luego muestra la animación visual.
+     * Inicia la resolución del laberinto en un hilo separado para no congelar la interfaz (modo automático).
+     * Mide el tiempo de ejecución real y luego muestra la solución final.
      * @param algorithmName El nombre del algoritmo seleccionado.
      */
-    private void runAnimatedSolver(String algorithmName) {
+    private void runAutomaticSolver(String algorithmName) {
         Cell start = findCell(CellState.START);
         Cell end = findCell(CellState.END);
         if (start == null || end == null) {
@@ -91,56 +102,121 @@ public class MazeController {
             return;
         }
         clearVisualPath();
-        setButtonsEnabled(false);
+        setButtonsEnabled(false); // Deshabilita botones durante la resolución automática
 
-        SwingWorker<SolveResultPayload, Cell> worker = new SwingWorker<>() {
+        SwingWorker<SolveResultPayload, Void> worker = new SwingWorker<>() { // Ya no publica Cells en process para este modo
             @Override
             protected SolveResultPayload doInBackground() throws Exception {
-                Consumer<Cell> stepPublisher = this::publish;
                 MazeSolver solver = getSolverByName(algorithmName);
 
                 long startTime = System.nanoTime();
-                List<Cell> path = solver.solve(mazeGrid, start, end);
+                List<Cell> path = solver.solve(mazeGrid, start, end); // Resuelve sin animación
                 long duration = System.nanoTime() - startTime;
                 
-                clearVisitedState();
-                
-                solver.solveStepByStep(mazeGrid, start, end, stepPublisher);
-                
                 return new SolveResultPayload(path, duration);
-            }
-
-            @Override
-            protected void process(List<Cell> chunks) {
-                for (Cell cell : chunks) {
-                    if (cell.getState() == CellState.PATH) {
-                        cell.setState(CellState.VISITED);
-                    }
-                }
-                mazePanel.repaint();
             }
 
             @Override
             protected void done() {
                 try {
                     SolveResultPayload result = get();
-                    clearVisualPath();
+                    clearVisualPath(); // Asegura limpieza visual si había algo anterior
                     addAlgoritmoResult(algorithmName, result.path(), result.duration());
 
-                    // --- ¡AQUÍ ESTÁ LA LÓGICA CORREGIDA! ---
-                    // Si la lista del camino está vacía, significa que no se encontró solución.
                     if (result.path().isEmpty()) {
                         JOptionPane.showMessageDialog(mazeFrame, "No se encontró un camino al destino.", "Sin Solución", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        JOptionPane.showMessageDialog(mazeFrame, "¡Búsqueda completada! Camino encontrado para el algoritmo " + algorithmName + ".", "Búsqueda Completada", JOptionPane.INFORMATION_MESSAGE);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
-                    JOptionPane.showMessageDialog(mazeFrame, "Ocurrió un error al resolver:\n" + e.getCause(), "Error", JOptionPane.ERROR_MESSAGE);
+                    String errorMessage = "Ocurrió un error al resolver.";
+                    if (e.getCause() != null) {
+                        errorMessage += "\nCausa: " + e.getCause().getMessage();
+                    } else if (e.getMessage() != null) {
+                        errorMessage += "\nMensaje: " + e.getMessage();
+                    }
+                    JOptionPane.showMessageDialog(mazeFrame, errorMessage, "Error", JOptionPane.ERROR_MESSAGE);
                 } finally {
-                    setButtonsEnabled(true);
+                    setButtonsEnabled(true); // Habilita botones al finalizar
                 }
             }
         };
         worker.execute();
+    }
+
+    /**
+     * Maneja el clic en el botón "Paso a paso" (modo manual).
+     * Cada clic avanza un solo paso del algoritmo.
+     */
+    private void handleStepByStepClick() {
+        if (!stepByStepActive) {
+            // Inicializar la búsqueda paso a paso si no está activa
+            stepByStepStart = findCell(CellState.START);
+            stepByStepEnd = findCell(CellState.END);
+
+            if (stepByStepStart == null || stepByStepEnd == null) {
+                JOptionPane.showMessageDialog(mazeFrame, "Debe definir un punto de INICIO y FIN para el modo paso a paso.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Limpiar visualmente el laberinto antes de iniciar el paso a paso
+            clearVisualPath();
+            
+            currentStepAlgorithmName = (String) mazeFrame.getAlgorithmComboBox().getSelectedItem();
+            currentStepSolver = getSolverByName(currentStepAlgorithmName);
+            
+            // Inicializar el solver para el modo paso a paso
+            currentStepSolver.initializeStepByStep(mazeGrid, stepByStepStart, stepByStepEnd);
+            stepByStepActive = true;
+            
+            // Opcional: Deshabilitar botones de edición mientras el paso a paso está activo
+            mazeFrame.getSolveButton().setEnabled(false);
+            mazeFrame.getClearButton().setEnabled(false);
+            // El botón de "Paso a paso" se mantiene habilitado para seguir haciendo clics.
+
+        }
+
+        // Ejecutar el siguiente paso
+        if (currentStepSolver != null && !currentStepSolver.isStepByStepFinished()) {
+            Cell stepCell = currentStepSolver.doStep();
+            if (stepCell != null) {
+                // Marcar la celda como visitada si no es START o END
+                if (stepCell.getState() == CellState.PATH) {
+                    stepCell.setState(CellState.VISITED);
+                }
+                mazePanel.repaint(); // Repintar para mostrar la celda actual
+            }
+
+            // Verificar si la búsqueda ha terminado después de este paso
+            if (currentStepSolver.isStepByStepFinished()) {
+                List<Cell> finalPath = currentStepSolver.getFinalPath();
+                long duration = 0; // En modo paso a paso manual, el tiempo real no es tan relevante por clic,
+                                   // pero podrías calcularlo si mantienes un startTime global para el step-by-step.
+                                   // Para este ejemplo, lo dejamos en 0 o puedes quitarlo si no lo registras.
+                
+                // Limpia los estados VISITADOS antes de pintar la solución final
+                clearVisualPath(); 
+                addAlgoritmoResult(currentStepAlgorithmName, finalPath, duration);
+
+                if (finalPath.isEmpty()) {
+                    JOptionPane.showMessageDialog(mazeFrame, "No se encontró un camino al destino en el modo paso a paso.", "Sin Solución", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(mazeFrame, "¡Búsqueda paso a paso completada! Camino encontrado para el algoritmo " + currentStepAlgorithmName + ".", "Búsqueda Completada", JOptionPane.INFORMATION_MESSAGE);
+                }
+                
+                // Restablecer el estado para futuras búsquedas paso a paso o automáticas
+                stepByStepActive = false;
+                currentStepSolver = null;
+                setButtonsEnabled(true); // Habilita todos los botones nuevamente
+            }
+        } else if (stepByStepActive && currentStepSolver.isStepByStepFinished()) {
+            // Caso donde se hace clic en "Paso a paso" después de que ya terminó
+            JOptionPane.showMessageDialog(mazeFrame, "La búsqueda paso a paso ya ha terminado.", "Info", JOptionPane.INFORMATION_MESSAGE);
+            setButtonsEnabled(true); // Asegurar que los botones estén habilitados
+            stepByStepActive = false;
+            currentStepSolver = null;
+        }
     }
     
     /**
@@ -155,7 +231,6 @@ public class MazeController {
             case "Backtracking":
             case "Recursivo Completo BT":
                 return new MazeSolverRecursivoCompletoBT();
-            // --- LÓGICA REVERTIDA A LA ORIGINAL ---
             case "Recursivo": 
                 return new MazeSolverRecursivo();
             case "Recursivo Completo":
@@ -172,45 +247,65 @@ public class MazeController {
         mazeFrame.getSolveButton().setEnabled(enabled);
         mazeFrame.getStepButton().setEnabled(enabled);
         mazeFrame.getClearButton().setEnabled(enabled);
+        // También podrías habilitar/deshabilitar los botones de edición de laberinto aquí si lo deseas
+        mazeFrame.getSetStartButton().setEnabled(enabled);
+        mazeFrame.getSetEndButton().setEnabled(enabled);
+        mazeFrame.getToggleWallButton().setEnabled(enabled);
     }
     
     private void handlePanelClick(int row, int col) {
+        // Si el modo paso a paso está activo, no permitimos la edición del laberinto.
+        if (stepByStepActive) {
+            JOptionPane.showMessageDialog(mazeFrame, "No se puede editar el laberinto mientras el modo paso a paso está activo.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Verifica que las coordenadas estén dentro de los límites del laberinto.
         if (row < 0 || row >= mazeGrid.length || col < 0 || col >= mazeGrid[0].length) return;
         switch (currentEditMode) {
             case "Set Start":
+                // Elimina cualquier otro punto de inicio y establece el nuevo.
                 findAndReplaceState(CellState.START, CellState.PATH);
                 mazeGrid[row][col].setState(CellState.START);
                 break;
             case "Set End":
+                // Elimina cualquier otro punto final y establece el nuevo.
                 findAndReplaceState(CellState.END, CellState.PATH);
                 mazeGrid[row][col].setState(CellState.END);
                 break;
             case "Toggle Wall":
+                // Cambia el estado de la celda entre WALL y PATH.
                 Cell cell = mazeGrid[row][col];
                 if (cell.getState() == CellState.WALL) cell.setState(CellState.PATH);
                 else if (cell.getState() == CellState.PATH) cell.setState(CellState.WALL);
                 break;
         }
-        mazePanel.repaint();
+        mazePanel.repaint(); // Repinta el panel después de un cambio en el laberinto.
     }
     
     private void addAlgoritmoResult(String algorithmName, List<Cell> path, long executionTime) {
+        // Elimina el resultado anterior si el algoritmo ya existía para evitar duplicados en la tabla.
         solveResults.getResults().removeIf(res -> res.getAlgorithmName().equals(algorithmName));
         solveResults.addResult(new AlgorithmResult(algorithmName, executionTime, path));
+        
+        // Marca las celdas de la ruta de la solución final.
         for (Cell cell : path) {
+            // Asegura no sobrescribir START o END si son parte del camino.
             if (cell.getState() == CellState.PATH || cell.getState() == CellState.VISITED) {
                 cell.setState(CellState.SOLUTION);
             }
         }
-        mazePanel.repaint();
+        mazePanel.repaint(); // Repinta el laberinto para mostrar la solución final.
     }
     
     private void mostrarResultados() {
+        // Actualiza y muestra el diálogo de resultados con los datos actuales.
         resultadosDialog.setResults(solveResults.getResults());
         resultadosDialog.setVisible(true);
     }
     
     private void clearWalls() {
+        // Restablece todas las celdas que son muros, solución o visitadas a PATH.
         for (Cell[] row : mazeGrid) {
             for (Cell cell : row) {
                 if (cell.getState() == CellState.WALL || cell.getState() == CellState.SOLUTION || cell.getState() == CellState.VISITED) {
@@ -218,20 +313,23 @@ public class MazeController {
                 }
             }
         }
-        mazePanel.repaint();
+        mazePanel.repaint(); // Repinta para reflejar la limpieza.
     }
     
     private void clearVisualPath() {
+        // Limpia solo los estados visuales temporales (solución pintada y visitadas).
         clearState(CellState.SOLUTION);
         clearState(CellState.VISITED);
-        mazePanel.repaint();
+        mazePanel.repaint(); // Asegura que los cambios se visualicen inmediatamente.
     }
 
     private void clearVisitedState() {
+        // Específicamente para limpiar solo las celdas que fueron marcadas como VISITADAS durante la animación.
         clearState(CellState.VISITED);
     }
 
     private void clearState(CellState stateToClear) {
+        // Recorre la cuadrícula y restablece las celdas con 'stateToClear' a PATH.
         if (mazeGrid == null) return;
         for (Cell[] row : mazeGrid) {
             for (Cell cell : row) {
@@ -243,26 +341,29 @@ public class MazeController {
     }
     
     private void findAndReplaceState(CellState toFind, CellState toReplace) {
+        // Busca una celda con 'toFind' y cambia su estado a 'toReplace'. Útil para reubicar START/END.
         for (Cell[] row : mazeGrid) {
             for (Cell cell : row) {
                 if (cell.getState() == toFind) {
                     cell.setState(toReplace);
-                    return;
+                    return; // Se asume que solo hay una celda de este tipo (START o END).
                 }
             }
         }
     }
     
     private Cell findCell(CellState state) {
+        // Busca y retorna la primera celda que coincida con el estado dado.
         for (Cell[] row : mazeGrid) {
             for (Cell cell : row) {
                 if (cell.getState() == state) return cell;
             }
         }
-        return null;
+        return null; // Retorna null si la celda no se encuentra.
     }
     
     private Cell[][] createDefaultMaze(int height, int width) {
+        // Inicializa un nuevo laberinto con todas las celdas en estado PATH.
         Cell[][] maze = new Cell[height][width];
         for (int row = 0; row < height; row++) {
             for (int col = 0; col < width; col++) {

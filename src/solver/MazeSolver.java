@@ -17,10 +17,29 @@ public interface MazeSolver {
     List<Cell> solve(Cell[][] maze, Cell start, Cell end);
 
     /**
-     * Resuelve un laberinto mostrando una animación paso a paso.
-     * @param stepCallback Una función que se llama en cada paso para actualizar la UI.
-     * @return Una lista de Celdas (List<Cell>) con el camino.
-     * @throws InterruptedException Si el hilo de la animación es interrumpido.
+     * Inicializa el algoritmo para una ejecución paso a paso.
+     * Esto prepara el estado interno del solucionador para que pueda avanzar celda por celda.
+     * @param maze La matriz 2D de celdas que representa el laberinto.
+     * @param start La celda de inicio.
+     * @param end La celda de destino.
      */
-    List<Cell> solveStepByStep(Cell[][] maze, Cell start, Cell end, Consumer<Cell> stepCallback) throws InterruptedException;
+    void initializeStepByStep(Cell[][] maze, Cell start, Cell end);
+
+    /**
+     * Ejecuta un solo paso del algoritmo.
+     * @return La celda visitada en este paso, o null si la búsqueda ha terminado o no hay más pasos.
+     */
+    Cell doStep();
+
+    /**
+     * Verifica si el algoritmo ha terminado su búsqueda (encontró el final o agotó todas las opciones).
+     * @return true si la búsqueda paso a paso ha finalizado, false en caso contrario.
+     */
+    boolean isStepByStepFinished();
+
+    /**
+     * Devuelve el camino final encontrado después de que la búsqueda paso a paso haya terminado.
+     * @return Una lista de Celdas (List<Cell>) con el camino final, o una lista vacía si no se encontró.
+     */
+    List<Cell> getFinalPath();
 }

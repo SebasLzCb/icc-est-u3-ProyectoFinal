@@ -1,7 +1,7 @@
 package solver.solverImpl;
 
 import java.util.*;
-import java.util.function.Consumer;
+import java.util.function.Consumer; 
 import models.Cell;
 import models.CellState;
 import solver.MazeSolver;
@@ -13,6 +13,14 @@ import solver.MazeSolver;
  */
 public class MazeSolverBFS implements MazeSolver {
 
+    private Queue<Cell> queue;
+    private boolean[][] visited;
+    private Cell[][] mazeGrid;
+    private Cell startCell;
+    private Cell endCell;
+    private List<Cell> finalPath; // Para almacenar el camino una vez encontrado.
+    private boolean finished; // Indica si la búsqueda ha terminado.
+
     /**
      * Resuelve el laberinto de forma rápida, sin animación.
      * @param mazeGrid La matriz 2D de celdas que representa el laberinto.
@@ -22,42 +30,120 @@ public class MazeSolverBFS implements MazeSolver {
      */
     @Override
     public List<Cell> solve(Cell[][] mazeGrid, Cell start, Cell end) {
-        Queue<Cell> queue = new LinkedList<>(); // Se usa una Cola (Queue) para la gestión de celdas a visitar.
-        boolean[][] visited = new boolean[mazeGrid.length][mazeGrid[0].length];
+        Queue<Cell> localQueue = new LinkedList<>();
+        boolean[][] localVisited = new boolean[mazeGrid.length][mazeGrid[0].length];
 
-        start.setParent(null); // La celda inicial no tiene padre.
-        queue.add(start);
-        visited[start.getRow()][start.getCol()] = true;
+        start.setParent(null);
+        localQueue.add(start);
+        localVisited[start.getRow()][start.getCol()] = true;
 
-        while (!queue.isEmpty()) {
-            Cell current = queue.poll(); // Se extrae la siguiente celda de la cola.
+        while (!localQueue.isEmpty()) {
+            Cell current = localQueue.poll();
 
             if (current.equals(end)) {
-                return reconstructPath(current); // Si es el final, se reconstruye y devuelve el camino.
+                return reconstructPath(current);
             }
             
-            // --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
-            // Se define el orden de exploración para coincidir con el del profesor.
-            // Prioridad: Abajo, Arriba, Derecha, Izquierda.
-            int[] dr = {1, -1, 0, 0};
+            int[] dr = {1, -1, 0, 0}; // Abajo, Arriba, Derecha, Izquierda
             int[] dc = {0, 0, 1, -1};
 
             for (int i = 0; i < 4; i++) {
                 int nRow = current.getRow() + dr[i];
                 int nCol = current.getCol() + dc[i];
 
-                // Se comprueba si el vecino es una celda válida.
                 if (nRow >= 0 && nCol >= 0 && nRow < mazeGrid.length && nCol < mazeGrid[0].length &&
-                        !visited[nRow][nCol] && mazeGrid[nRow][nCol].getState() != CellState.WALL) {
+                        !localVisited[nRow][nCol] && mazeGrid[nRow][nCol].getState() != CellState.WALL) {
                     
-                    visited[nRow][nCol] = true;
+                    localVisited[nRow][nCol] = true;
                     Cell neighbor = mazeGrid[nRow][nCol];
-                    neighbor.setParent(current); // Se establece el padre para poder reconstruir el camino.
-                    queue.add(neighbor); // Se añade el vecino a la cola para visitarlo después.
+                    neighbor.setParent(current);
+                    localQueue.add(neighbor);
                 }
             }
         }
-        return Collections.emptyList(); // Si la cola se vacía, no hay solución.
+        return Collections.emptyList();
+    }
+
+    /**
+     * Inicializa el algoritmo para una ejecución paso a paso (manual).
+     */
+    @Override
+    public void initializeStepByStep(Cell[][] maze, Cell start, Cell end) {
+        this.mazeGrid = maze;
+        this.startCell = start;
+        this.endCell = end;
+        this.queue = new LinkedList<>();
+        this.visited = new boolean[maze.length][maze[0].length];
+        this.finalPath = Collections.emptyList();
+        this.finished = false;
+
+        // Reset parents for all cells to ensure a clean slate for new searches.
+        // This is important because Cell objects are reused in the mazeGrid.
+        for (int r = 0; r < maze.length; r++) {
+            for (int c = 0; c < maze[0].length; c++) {
+                maze[r][c].setParent(null);
+            }
+        }
+
+        startCell.setParent(null); // La celda inicial no tiene padre.
+        queue.add(startCell);
+        visited[startCell.getRow()][startCell.getCol()] = true;
+    }
+
+    /**
+     * Ejecuta un solo paso del algoritmo BFS.
+     * @return La celda visitada en este paso, o null si la búsqueda ha terminado o no hay más pasos.
+     */
+    @Override
+    public Cell doStep() {
+        if (finished || queue.isEmpty()) {
+            finished = true; // Marca como terminado si ya lo estaba o la cola está vacía
+            return null; // La búsqueda ha terminado o no hay más pasos.
+        }
+
+        Cell current = queue.poll();
+
+        if (current.equals(endCell)) {
+            finalPath = reconstructPath(current);
+            finished = true;
+            return current; // Se encontró el final.
+        }
+        
+        // Explora vecinos y los añade a la cola.
+        int[] dr = {1, -1, 0, 0}; // Abajo, Arriba, Derecha, Izquierda
+        int[] dc = {0, 0, 1, -1};
+
+        for (int i = 0; i < 4; i++) {
+            int nRow = current.getRow() + dr[i];
+            int nCol = current.getCol() + dc[i];
+
+            if (nRow >= 0 && nCol >= 0 && nRow < mazeGrid.length && nCol < mazeGrid[0].length &&
+                    !visited[nRow][nCol] && mazeGrid[nRow][nCol].getState() != CellState.WALL) {
+                
+                visited[nRow][nCol] = true;
+                Cell neighbor = mazeGrid[nRow][nCol];
+                neighbor.setParent(current);
+                queue.add(neighbor);
+            }
+        }
+        return current; // Retorna la celda actual que acaba de ser procesada.
+    }
+
+    /**
+     * Verifica si la búsqueda paso a paso ha terminado.
+     */
+    @Override
+    public boolean isStepByStepFinished() {
+        // La búsqueda termina si se encuentra el camino o si la cola está vacía.
+        return finished;
+    }
+
+    /**
+     * Devuelve el camino final después de la búsqueda paso a paso.
+     */
+    @Override
+    public List<Cell> getFinalPath() {
+        return finalPath;
     }
 
     /**
@@ -65,9 +151,9 @@ public class MazeSolverBFS implements MazeSolver {
      * @param endCell La celda final encontrada por el algoritmo.
      * @return La lista de celdas que componen el camino, en orden de inicio a fin.
      */
-    private List<Cell> reconstructPath(Cell endCell) {
+    private List<Cell> reconstructPath(Cell cell) {
         List<Cell> path = new ArrayList<>();
-        Cell current = endCell;
+        Cell current = cell;
         while (current != null) {
             path.add(current);
             current = current.getParent(); // Se mueve hacia atrás, al padre de la celda actual.
@@ -76,42 +162,10 @@ public class MazeSolverBFS implements MazeSolver {
         return path;
     }
 
-    /**
-     * Resuelve el laberinto mostrando una animación paso a paso.
-     */
-    @Override
-    public List<Cell> solveStepByStep(Cell[][] mazeGrid, Cell start, Cell end, Consumer<Cell> stepCallback) throws InterruptedException {
-        Queue<Cell> queue = new LinkedList<>();
-        boolean[][] visited = new boolean[mazeGrid.length][mazeGrid[0].length];
-        start.setParent(null);
-        queue.add(start);
-        visited[start.getRow()][start.getCol()] = true;
-
-        while (!queue.isEmpty()) {
-            Cell current = queue.poll();
-            stepCallback.accept(current); // Publica la celda actual para que la UI la pinte.
-            Thread.sleep(25);             // Pausa para que la animación sea visible.
-            
-            if (current.equals(end)) {
-                return reconstructPath(current);
-            }
-            
-            // Se mantiene el mismo orden de exploración que en la versión no animada.
-            int[] dr = {1, -1, 0, 0};
-            int[] dc = {0, 0, 1, -1};
-
-            for (int i = 0; i < 4; i++) {
-                int nRow = current.getRow() + dr[i];
-                int nCol = current.getCol() + dc[i];
-                if (nRow >= 0 && nCol >= 0 && nRow < mazeGrid.length && nCol < mazeGrid[0].length &&
-                        !visited[nRow][nCol] && mazeGrid[nRow][nCol].getState() != CellState.WALL) {
-                    visited[nRow][nCol] = true;
-                    Cell neighbor = mazeGrid[nRow][nCol];
-                    neighbor.setParent(current);
-                    queue.add(neighbor);
-                }
-            }
-        }
-        return Collections.emptyList();
-    }
+    // ELIMINADO: El método solveStepByStep con Consumer ya no forma parte de la interfaz MazeSolver.
+    // @Override
+    // public List<Cell> solveStepByStep(Cell[][] maze, Cell start, Cell end, Consumer<Cell> stepCallback) throws InterruptedException {
+    //     // Esta implementación ya no es necesaria y causaba el error de compilación.
+    //     return Collections.emptyList(); 
+    // }
 }
